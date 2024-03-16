@@ -8,7 +8,7 @@ var webpack = require('webpack'),
   TerserPlugin = require('terser-webpack-plugin');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
-const MANIFEST_VERSION = process.env.MANIFEST_VERSION;
+const MANIFEST_VERSION = 3;
 
 var alias = {
   'react-dom': '@hot-loader/react-dom',

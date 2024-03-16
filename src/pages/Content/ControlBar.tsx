@@ -33,6 +33,7 @@ import {
 
 import ControlBarStyle from './ControlBar.css';
 import { endRecording } from '../Common/endRecording';
+import { v4 as uuidv4 } from 'uuid';
 
 const ActionButton = ({
   onClick,
@@ -136,6 +137,9 @@ export default function ControlBar({ onExit }: { onExit: () => void }) {
   const [isFinished, setIsFinished] = useState<boolean>(false);
 
   const [isOpen, setIsOpen] = useState<boolean>(true);
+  const [currentPageHTML, setCurrentPageHTML] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [screenId, setScreenId] = useState('');
 
   const handleMouseMoveRef = useRef((_: MouseEvent) => {});
   const recorderRef = useRef<Recorder | null>(null);
@@ -162,6 +166,12 @@ export default function ControlBar({ onExit }: { onExit: () => void }) {
   };
 
   useEffect(() => {
+    const session = uuidv4();
+    const screen = uuidv4();
+    setSessionId(session);
+    setScreenId(screen);
+    const html: string = document.documentElement.outerHTML;
+    setCurrentPageHTML(html);
     handleMouseMoveRef.current = throttle((event: MouseEvent) => {
       const x = event.clientX,
         y = event.clientY,
@@ -213,9 +223,41 @@ export default function ControlBar({ onExit }: { onExit: () => void }) {
     });
   }, []);
 
+  useEffect(() => {
+    if (!lastAction || !hoveredElement) return;
+    const bbox = hoveredElement?.getBoundingClientRect();
+    const text = hoveredElement.textContent || hoveredElement.innerText;
+    fetch('http://localhost:8000/api/v1/html_similarity', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        screen_id: screenId,
+        results: [
+          {
+            bbox: [
+              Math.floor(bbox.left),
+              Math.floor(bbox.top),
+              Math.floor(bbox.right),
+              Math.floor(bbox.bottom),
+            ],
+            html: hoveredElement.outerHTML,
+            xml: genCode([lastAction], true, displayedScriptType),
+            text: text,
+          },
+        ],
+        html: currentPageHTML,
+        event: lastAction.type,
+      }),
+    });
+  }, [lastAction]);
+
   const displayedScriptType = preferredLibrary ?? ScriptType.Cypress;
 
   const rect = hoveredElement?.getBoundingClientRect();
+
   const displayedSelector = getBestSelectorForAction(
     {
       type: ActionType.Click,
